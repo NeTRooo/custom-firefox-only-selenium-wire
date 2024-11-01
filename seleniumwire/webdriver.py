@@ -17,18 +17,15 @@ try:
     from selenium.webdriver import TouchActions  # noqa
 except ImportError:
     pass
-from selenium.webdriver import Chrome as _Chrome
-from selenium.webdriver import ChromeOptions, DesiredCapabilities
-from selenium.webdriver import Edge as _Edge
-from selenium.webdriver import EdgeOptions
+from selenium.webdriver import DesiredCapabilities
 from selenium.webdriver import Firefox as _Firefox
 from selenium.webdriver import Remote as _Remote
-from selenium.webdriver import Safari as _Safari
 
 from seleniumwire import backend, utils
 from seleniumwire.inspect import InspectRequestsMixin
 
 SELENIUM_V4 = parse_version(getattr(selenium, '__version__', '0')) >= parse_version('4.0.0')
+SELENIUM_V4_10 = parse_version(getattr(selenium, '__version__', '0')) >= parse_version('4.10.0')
 
 
 class DriverCommonMixin:
@@ -179,130 +176,41 @@ class Firefox(InspectRequestsMixin, DriverCommonMixin, _Firefox):
         super().__init__(*args, **kwargs)
 
 
-class Chrome(InspectRequestsMixin, DriverCommonMixin, _Chrome):
-    """Extend the Chrome webdriver to provide additional methods for inspecting requests."""
-
-    def __init__(self, *args, seleniumwire_options=None, **kwargs):
-        """Initialise a new Chrome WebDriver instance.
-
-        Args:
-            seleniumwire_options: The seleniumwire options dictionary.
-        """
-        if seleniumwire_options is None:
-            seleniumwire_options = {}
-
-        try:
-            # Pop-out the chrome_options argument and always use the options
-            # argument to pass to the superclass.
-            chrome_options = kwargs.pop('chrome_options', None) or kwargs['options']
-        except KeyError:
-            chrome_options = ChromeOptions()
-
-        # Prevent Chrome from bypassing the Selenium Wire proxy
-        # for localhost addresses.
-        chrome_options.add_argument('--proxy-bypass-list=<-loopback>')
-        kwargs['options'] = chrome_options
-
-        config = self._setup_backend(seleniumwire_options)
-
-        if seleniumwire_options.get('auto_config', True):
-            try:
-                for key, value in config.items():
-                    chrome_options.set_capability(key, value)
-            except AttributeError:
-                # Earlier versions of the Chromium webdriver API require the
-                # DesiredCapabilities to be explicitly passed.
-                caps = kwargs.setdefault('desired_capabilities', DesiredCapabilities.CHROME.copy())
-                caps.update(config)
-
-        super().__init__(*args, **kwargs)
-
-
-class Safari(InspectRequestsMixin, DriverCommonMixin, _Safari):
-    """Extend the Safari webdriver to provide additional methods for inspecting requests."""
-
-    def __init__(self, seleniumwire_options=None, *args, **kwargs):
-        """Initialise a new Safari WebDriver instance.
-
-        Args:
-            seleniumwire_options: The seleniumwire options dictionary.
-        """
-        if seleniumwire_options is None:
-            seleniumwire_options = {}
-
-        # Safari does not support automatic proxy configuration through the
-        # DesiredCapabilities API, and thus has to be configured manually.
-        # Whatever port number is chosen for that manual configuration has to
-        # be passed in the options.
-        assert 'port' in seleniumwire_options, 'You must set a port number in the seleniumwire_options'
-
-        self._setup_backend(seleniumwire_options)
-
-        super().__init__(*args, **kwargs)
-
-
-class Edge(InspectRequestsMixin, DriverCommonMixin, _Edge):
-    """Extend the Edge webdriver to provide additional methods for inspecting requests."""
-
-    def __init__(self, seleniumwire_options=None, *args, **kwargs):
-        """Initialise a new Edge WebDriver instance.
-
-        Args:
-            seleniumwire_options: The seleniumwire options dictionary.
-        """
-        if seleniumwire_options is None:
-            seleniumwire_options = {}
-
-        try:
-            # Pop-out the edge_options argument and always use the options
-            # argument to pass to the superclass.
-            edge_options = kwargs.pop('edge_options', None) or kwargs['options']
-        except KeyError:
-            edge_options = EdgeOptions()
-
-        # Prevent Edge from bypassing the Selenium Wire proxy
-        # for localhost addresses.
-        edge_options.add_argument('--proxy-bypass-list=<-loopback>')
-        kwargs['options'] = edge_options
-
-        config = self._setup_backend(seleniumwire_options)
-
-        if seleniumwire_options.get('auto_config', True):
-            try:
-                for key, value in config.items():
-                    edge_options.set_capability(key, value)
-            except AttributeError:
-                # Earlier versions of the Chromium webdriver API require the
-                # DesiredCapabilities to be explicitly passed.
-                caps = kwargs.setdefault('desired_capabilities', DesiredCapabilities.CHROME.copy())
-                caps.update(config)
-
-        super().__init__(*args, **kwargs)
-
-
 class Remote(InspectRequestsMixin, DriverCommonMixin, _Remote):
     """Extend the Remote webdriver to provide additional methods for inspecting requests."""
 
     def __init__(self, *args, seleniumwire_options=None, **kwargs):
-        """Initialise a new Firefox WebDriver instance.
+        """Initialise a new Remote WebDriver instance.
 
         Args:
             seleniumwire_options: The seleniumwire options dictionary.
+
+        P.S.:
+            В seleniumwire_options необходимо передавать ip и port по которому можно обратиться к proxy selenium-wire
         """
         if seleniumwire_options is None:
             seleniumwire_options = {}
 
+        try:
+            remote_options = kwargs['options']
+        except KeyError:
+            remote_options = FirefoxOptions()  # FireFox webdriver is used by default
+            kwargs['options'] = remote_options
+
         config = self._setup_backend(seleniumwire_options)
 
         if seleniumwire_options.get('auto_config', True):
-            capabilities = kwargs.get('desired_capabilities')
-            if capabilities is None:
-                capabilities = DesiredCapabilities.FIREFOX.copy()
+            if SELENIUM_V4_10:
+                # From Selenium v4.10.0 the browser's desired capabilities can no longer
+                # be passed, so we must use the options object instead.
+                for key, value in config.items():
+                    remote_options.set_capability(key, value)
+
             else:
-                capabilities = capabilities.copy()
-
-            capabilities.update(config)
-
-            kwargs['desired_capabilities'] = capabilities
+                # Earlier versions of the FireFox webdriver API require the
+                # DesiredCapabilities to be explicitly passed.
+                capabilities = kwargs.setdefault('desired_capabilities', DesiredCapabilities.FIREFOX.copy())
+                capabilities.update(config)
+                kwargs['desired_capabilities'] = capabilities
 
         super().__init__(*args, **kwargs)

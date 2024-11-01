@@ -11,7 +11,7 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 setup(
-    author="Will Keeling",
+    author="DenSSS & Will Keeling",
     author_email='will@zifferent.com',
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -74,12 +74,12 @@ setup(
         ],
     },
     keywords='selenium-wire',
-    name='selenium-wire',
+    name='custom-firefox-only-selenium-wire',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     setup_requires=[],
     test_suite='tests.seleniumwire',
     tests_require=['pytest'],
-    url='https://github.com/wkeeling/selenium-wire',
+    url='https://github.com/NeTRooo/custom-firefox-only-selenium-wire',
     version='5.1.0',
     zip_safe=False,
 )
